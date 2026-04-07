@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.error_handlers import register_exception_handlers
 from app.core.logging import setup_logging
 from app.api.v1.router import api_router
-
+from fastapi.security import OAuth2PasswordBearer
 setup_logging()
 logger = logging.getLogger("app")
 
@@ -22,6 +22,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):

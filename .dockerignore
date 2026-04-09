@@ -40,3 +40,8 @@ Thumbs.db
 tests/
 README.md
 unjack-backend-plan.docx
+
+# Keep Alembic migrations in build context
+!alembic/
+!alembic/versions/
+!alembic/versions/*.py

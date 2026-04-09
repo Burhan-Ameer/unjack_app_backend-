@@ -8,4 +8,4 @@ class AppSession(Base):
     app_name = Column(String)
     package = Column(String)
     duration = Column(BigInteger)  # in seconds
-    blocked_date = Column(DateTime)
+    blocked_date = Column(DateTime(timezone=True), nullable=True)  # when the session was blocked, if applicable

@@ -1,22 +1,23 @@
+from datetime import datetime
+
 from pydantic import BaseModel
-from typing import List
 
 class FriendRequest(BaseModel):
+    friend_id: int
     friend_username: str
 
-class FriendResponse(BaseModel):
-    id: int
+class FriendRequestCreated(BaseModel):
+    friendship_id: int
+
+class FriendAcceptResponse(BaseModel):
+    status: str = "accepted"
+
+class FriendListItem(BaseModel):
+    user_id: int
     username: str
-    email: str
+    avatar_url: str | None = None
 
-class FriendshipResponse(BaseModel):
-    id: int
-    requester: FriendResponse
-    addressee: FriendResponse
-    status: str
-
-class FriendsList(BaseModel):
-    friends: List[FriendResponse]
-
-class RequestsList(BaseModel):
-    requests: List[FriendshipResponse]
+class FriendRequestItem(BaseModel):
+    friendship_id: int
+    from_user: str
+    created_at: datetime

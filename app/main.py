@@ -52,9 +52,11 @@ register_exception_handlers(app)
 
 app.include_router(api_router, prefix="/api/v1")
 
-# Optionally initialize database tables
-# from app.db.session import engine, Base
-# @app.on_event("startup")
-# async def init_db():
-#     async with engine.begin() as conn:
-#         await conn.run_sync(Base.metadata.create_all)
+# Initialize database tables on startup for environments without Alembic migrations.
+from app.db.session import engine, Base  # noqa: E402
+
+
+@app.on_event("startup")
+async def init_db() -> None:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

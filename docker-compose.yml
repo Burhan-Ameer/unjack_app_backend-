@@ -1,28 +1,20 @@
+version: "3.9"
+
 services:
-  db:
-    image: postgres:15
-    restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: unjack
+  redis:
+    image: redis:7-alpine
     ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - "6379:6379"
 
   backend:
     build: .
-    command: sh -c "until alembic upgrade head; do echo 'Waiting for database...'; sleep 2; done; uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     volumes:
       - ./app:/app/app
       - ./alembic:/app/alembic
     ports:
       - "8000:8000"
+    depends_on:
+      - redis
     env_file:
       - .env
-    depends_on:
-      - db
-
-volumes:
-  postgres_data:

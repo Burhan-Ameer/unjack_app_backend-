@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Query
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,13 +8,22 @@ from app.db.session import get_db
 from app.features.auth.models import User
 
 router = APIRouter()
+logger = logging.getLogger("app.health.router")
+
+
+@router.get("/health/live")
+async def liveness_check():
+    return {"status": "ok"}
 
 
 @router.get("/health")
 async def health_check(db: AsyncSession = Depends(get_db)):
-    # Light DB probe so this endpoint also confirms database connectivity.
-    await db.execute(select(1))
-    return {"status": "ok"}
+    try:
+        await db.execute(select(1))
+    except Exception:
+        logger.exception("Health DB probe failed")
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    return {"status": "ok", "database": "ok"}
 
 
 @router.get("/users/check")

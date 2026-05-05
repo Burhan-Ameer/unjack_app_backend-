@@ -11,6 +11,7 @@ from app.features.auth import models as auth_models  # noqa: F401
 from app.features.friends import models as friends_models  # noqa: F401
 from app.features.leaderboard import models as leaderboard_models  # noqa: F401
 from app.features.sessions import models as sessions_models  # noqa: F401
+from app.features.groups import models as groups_models  # noqa: F401
 
 config = context.config
 

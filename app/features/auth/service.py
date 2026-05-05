@@ -4,7 +4,7 @@ from app.features.auth.repository import UserRepository
 from app.features.auth.models import User
 from app.schemas.auth import UserCreate, LoginRequest
 from app.utils.hashing import verify_password, get_password_hash
-from app.utils.jwt import create_access_token, create_refresh_token
+from app.utils.jwt import create_access_token, create_refresh_token, verify_refresh_token
 from datetime import datetime
 
 logger = logging.getLogger("app.auth.service")
@@ -37,3 +37,14 @@ class AuthService:
         refresh_token = create_refresh_token(data={"sub": user.username})
         logger.debug("Generated tokens for user_id=%s", user.id)
         return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+    async def refresh_tokens(self, refresh_token: str) -> dict:
+        # For now, refresh tokens are JWTs signed with the same secret.
+        # We verify the token and re-issue a fresh pair.
+        username = verify_refresh_token(refresh_token)
+        user = await self.user_repo.get_by_username(username)
+        if not user:
+            logger.warning("Refresh rejected: user not found username=%s", username)
+            raise ValueError("User not found")
+        logger.info("Refresh success user_id=%s username=%s", user.id, user.username)
+        return await self.create_user_tokens(user)

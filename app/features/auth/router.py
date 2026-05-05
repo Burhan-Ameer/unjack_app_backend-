@@ -5,7 +5,7 @@ from app.core.config import settings
 from app.core.rate_limiter import RedisSlidingWindowRateLimiter
 from app.dependencies import get_auth_service
 from app.features.auth.service import AuthService
-from app.schemas.auth import UserCreate, LoginRequest, Token
+from app.schemas.auth import UserCreate, LoginRequest, Token, RefreshTokenRequest
 
 router = APIRouter()
 logger = logging.getLogger("app.auth.router")
@@ -54,3 +54,21 @@ async def login(
     except Exception:
         logger.exception("Unexpected login error email=%s", login.email)
         raise HTTPException(status_code=500, detail="Failed to process login")
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh(
+    payload: RefreshTokenRequest,
+    request: Request,
+    service: AuthService = Depends(get_auth_service),
+):
+    await auth_rate_limiter.check(request)
+    try:
+        return await service.refresh_tokens(payload.refresh_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Unexpected refresh error")
+        raise HTTPException(status_code=500, detail="Failed to refresh token")

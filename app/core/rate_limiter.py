@@ -1,6 +1,6 @@
 import hashlib
 import time
-from uuid import uuid4
+from urllib import request
 
 from fastapi import HTTPException, Request
 from redis.asyncio import Redis
@@ -13,34 +13,75 @@ class RedisSlidingWindowRateLimiter:
         self.max_requests = max_requests
         self.window_seconds = window_seconds
 
+        # Atomic sliding-window counter limiter.
+        # Uses per-window counters (current + previous) and a weighted carryover from the previous window.
+        # This avoids storing a per-request log (sorted set) while approximating a true sliding window.
+        self._check_lua = """
+        local current = redis.call('INCR', KEYS[1])
+        redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1]))
+
+        local prev = tonumber(redis.call('GET', KEYS[2]) or '0')
+        local weight = tonumber(ARGV[2])
+        local max_requests = tonumber(ARGV[3])
+
+        local total = current + (prev * weight)
+        if total > max_requests then    
+            redis.call('DECR', KEYS[1])
+            return 0
+        end
+        return 1
+        """
+    
+
     def _resolve_client_key(self, request: Request) -> str:
+    # 1. Try forwarded header (only valid in trusted proxy setups like Azure)
         forwarded_for = request.headers.get("x-forwarded-for")
+
         if forwarded_for:
-            return forwarded_for.split(",", maxsplit=1)[0].strip()
+            # take FIRST IP = original client (standard convention in most clouds)
+            ip = forwarded_for.split(",")[0].strip()
+
+            if ip:
+                return ip
+
+        # 2. Fallback: direct connection IP
         return request.client.host if request.client else "unknown"
 
     def _redis_key(self, client_key: str) -> str:
         hashed = hashlib.sha256(client_key.encode("utf-8")).hexdigest()
         return f"{self.key_prefix}:{hashed}"
 
+    def _bucket_key(self, base_key: str, bucket_start: int) -> str:
+        return f"{base_key}:{bucket_start}"
+
     async def check(self, request: Request) -> None:
         now = time.time()
         client_key = self._resolve_client_key(request)
-        redis_key = self._redis_key(client_key)
-        window_start = now - self.window_seconds
-        member = f"{now}:{uuid4().hex}"
+        base_key = self._redis_key(client_key)
+
+        bucket_start = int(now // self.window_seconds) * self.window_seconds
+        prev_bucket_start = bucket_start - self.window_seconds
+
+        elapsed = now - bucket_start
+        # Weight of the previous window that still overlaps the current sliding window.
+        weight = (self.window_seconds - elapsed) / self.window_seconds
+        ttl_seconds = (self.window_seconds * 2) + 1 
+
+        current_key = self._bucket_key(base_key, bucket_start)
+        prev_key = self._bucket_key(base_key, prev_bucket_start)
 
         try:
-            async with self.redis.pipeline(transaction=True) as pipe:
-                pipe.zremrangebyscore(redis_key, 0, window_start)
-                pipe.zadd(redis_key, {member: now})
-                pipe.zcard(redis_key)
-                pipe.expire(redis_key, self.window_seconds + 1)
-                result = await pipe.execute()
+            allowed = await self.redis.eval(
+                self._check_lua,
+                2,
+                current_key,
+                prev_key,
+                ttl_seconds,
+                weight,
+                self.max_requests,
+            )   
         except Exception:
             raise HTTPException(status_code=503, detail="Rate limiter unavailable")
 
-        request_count = int(result[2])
-        if request_count > self.max_requests:
-            await self.redis.zrem(redis_key, member)
+        if int(allowed) != 1:
             raise HTTPException(status_code=429, detail="Too many requests")

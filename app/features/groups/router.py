@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.dependencies import get_group_service
 from app.features.groups.service import GroupService
-from app.schemas.groups import GroupCreate, GroupUpdate, GroupResponse, GroupMemberAdd, GroupMemberResponse
+from app.features.groups.schemas import GroupCreate, GroupUpdate, GroupResponse, GroupMemberAdd, GroupMemberResponse
 from app.utils.jwt import get_current_user
 
 router = APIRouter()

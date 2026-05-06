@@ -5,7 +5,7 @@ from app.core.config import settings
 from app.core.rate_limiter import RedisSlidingWindowRateLimiter
 from app.dependencies import get_auth_service
 from app.features.auth.service import AuthService
-from app.schemas.auth import UserCreate, LoginRequest, Token, RefreshTokenRequest
+from app.features.auth.schemas import UserCreate, LoginRequest, Token, RefreshTokenRequest
 
 router = APIRouter()
 logger = logging.getLogger("app.auth.router")

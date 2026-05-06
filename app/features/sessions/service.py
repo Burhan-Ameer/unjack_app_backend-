@@ -2,7 +2,7 @@ import logging
 
 from app.features.sessions.repository import SessionRepository
 from app.features.sessions.models import AppSession
-from app.schemas.session import SessionCreate, SessionResponse
+from app.features.sessions.schemas import SessionCreate, SessionResponse
 
 logger = logging.getLogger("app.sessions.service")
 

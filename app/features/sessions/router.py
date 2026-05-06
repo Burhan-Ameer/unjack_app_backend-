@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from app.dependencies import get_session_service
 from app.features.sessions.service import SessionService
-from app.schemas.session import SessionCreate, SessionHistory
+from app.features.sessions.schemas import SessionCreate, SessionHistory
 from app.utils.jwt import get_current_user
 
 router = APIRouter()

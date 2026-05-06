@@ -2,7 +2,7 @@ import logging
 
 from app.features.auth.repository import UserRepository
 from app.features.auth.models import User
-from app.schemas.auth import UserCreate, LoginRequest
+from app.features.auth.schemas import UserCreate, LoginRequest
 from app.utils.hashing import verify_password, get_password_hash
 from app.utils.jwt import create_access_token, create_refresh_token, verify_refresh_token
 from datetime import datetime

@@ -18,3 +18,5 @@ services:
       - redis
     env_file:
       - .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0

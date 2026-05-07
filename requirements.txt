@@ -17,3 +17,5 @@ redis==5.0.1
 pytest
 httpx
 python-dotenv
+pytest-asyncio
+aiosqlite

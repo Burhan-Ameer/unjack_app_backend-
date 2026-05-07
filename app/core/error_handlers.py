@@ -4,9 +4,9 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 
 logger = logging.getLogger("app.errors")
-
 
 def register_exception_handlers(app: FastAPI) -> None:
     def _resolve_request_id(request: Request) -> str:
@@ -47,13 +47,13 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
         return JSONResponse(
             status_code=422,
-            content={
+            content=jsonable_encoder({
                 "error": {
                     "message": "Request validation failed",
                     "request_id": request_id,
                     "details": exc.errors(),
                 }
-            },
+            }),
         )
 
     @app.exception_handler(Exception)

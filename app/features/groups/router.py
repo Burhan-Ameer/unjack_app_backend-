@@ -15,6 +15,12 @@ async def create_group(
     current_user=Depends(get_current_user),
     service: GroupService = Depends(get_group_service)
 ):
+    """
+    Create a new group.
+    
+    - **payload**: The data required to create a group (e.g., name).
+    - **Returns**: The created group with its initial state.
+    """
     try:
         group = await service.create_group(payload.name)
         logger.info("Group created name=%s created_by=%s", payload.name, current_user.id)
@@ -30,6 +36,11 @@ async def list_groups(
     current_user=Depends(get_current_user),
     service: GroupService = Depends(get_group_service)
 ):
+    """
+    Retrieve a list of all groups.
+    
+    - **Returns**: A list of groups including their statistics and members.
+    """
     try:
         return await service.list_groups()
     except Exception:
@@ -42,6 +53,13 @@ async def get_group(
     current_user=Depends(get_current_user),
     service: GroupService = Depends(get_group_service)
 ):
+    """
+    Retrieve details of a specific group by its ID.
+    
+    - **group_id**: The unique identifier of the group.
+    - **Returns**: The requested group object.
+    - **Raises 404**: If the group does not exist.
+    """
     group = await service.get_group(group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -54,6 +72,14 @@ async def update_group(
     current_user=Depends(get_current_user),
     service: GroupService = Depends(get_group_service)
 ):
+    """
+    Update an existing group's information.
+    
+    - **group_id**: The unique identifier of the group to update.
+    - **payload**: The fields to update (e.g., name).
+    - **Returns**: The updated group object.
+    - **Raises 404**: If the group does not exist.
+    """
     try:
         group = await service.update_group(group_id, payload.name)
         if not group:
@@ -71,6 +97,13 @@ async def delete_group(
     current_user=Depends(get_current_user),
     service: GroupService = Depends(get_group_service)
 ):
+    """
+    Delete a group by its ID.
+    
+    - **group_id**: The unique identifier of the group to delete.
+    - **Returns**: HTTP 204 No Content on successful deletion.
+    - **Raises 404**: If the group does not exist.
+    """
     success = await service.delete_group(group_id)
     if not success:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -83,6 +116,13 @@ async def add_member(
     current_user=Depends(get_current_user),
     service: GroupService = Depends(get_group_service)
 ):
+    """
+    Add a user to a specific group.
+    
+    - **group_id**: The unique identifier of the group.
+    - **payload**: The data containing the user_id to be added.
+    - **Returns**: The newly created group member record.
+    """
     try:
         member = await service.add_user_to_group(group_id, payload.user_id)
         logger.info("User added to group group_id=%s user_id=%s", group_id, payload.user_id)

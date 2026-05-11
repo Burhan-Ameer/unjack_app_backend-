@@ -22,7 +22,7 @@ async def create_group(
     - **Returns**: The created group with its initial state.
     """
     try:
-        group = await service.create_group(payload.name)
+        group = await service.create_group(payload.name, current_user.id)
         logger.info("Group created name=%s created_by=%s", payload.name, current_user.id)
         return group
     except ValueError as exc:
@@ -78,13 +78,16 @@ async def update_group(
     - **group_id**: The unique identifier of the group to update.
     - **payload**: The fields to update (e.g., name).
     - **Returns**: The updated group object.
+    - **Raises 403**: If the user is not a group admin.
     - **Raises 404**: If the group does not exist.
     """
     try:
-        group = await service.update_group(group_id, payload.name)
+        group = await service.update_group(group_id, payload.name, current_user.id)
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
         return group
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception:

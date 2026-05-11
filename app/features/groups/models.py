@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, BigInteger
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, BigInteger, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.session import Base
@@ -23,5 +23,6 @@ class GroupMember(Base):
     group_id = Column(Integer, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     joined_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_admin = Column(Boolean, default=False, nullable=False)
     
     group = relationship("Group", back_populates="members")

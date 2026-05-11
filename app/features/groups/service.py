@@ -13,9 +13,9 @@ class GroupService:
     def __init__(self, repository: GroupRepository):
         self.repository = repository
 
-    async def create_group(self, name: str) -> Group:
+    async def create_group(self, name: str, creator_id: int) -> Group:
         """
-        Create a new group with the given name.
+        Create a new group with the given name and set the creator as an admin member.
         
         Raises:
             ValueError: If a group with this name already exists.
@@ -23,7 +23,8 @@ class GroupService:
         existing = await self.repository.get_group_by_name(name)
         if existing:
             raise ValueError(f"Group with name '{name}' already exists")
-        return await self.repository.create_group(name)
+        
+        return await self.repository.create_group(name, creator_id)
         
 
     async def get_group(self, group_id: int) -> Optional[Group]:
@@ -41,15 +42,21 @@ class GroupService:
         """
         return await self.repository.list_groups()
 
-    async def update_group(self, group_id: int, name: str) -> Optional[Group]:
+    async def update_group(self, group_id: int, name: str, user_id: int) -> Optional[Group]:
         """
-        Update the name of an existing group.
+        Update the name of an existing group. Only group admins can perform this action.
         
         Raises:
             ValueError: If the newly proposed name is already taken by a different group.
+            PermissionError: If the user is not an admin of the group.
         Returns:
             The updated Group object, or None if the group does not exist.
         """
+        # Authorization check
+        membership = await self.repository.get_membership(group_id, user_id)
+        if not membership or not membership.is_admin:
+            raise PermissionError("Only group administrators can change the group name")
+
         existing = await self.repository.get_group_by_name(name)
         if existing and existing.id != group_id:
             raise ValueError(f"Group with name '{name}' already exists")

@@ -54,9 +54,20 @@ app.include_router(api_router, prefix="/api/v1")
 
 # Initialize database tables on startup for environments without Alembic migrations.
 from app.db.session import engine, Base  # noqa: E402
+from app.features.scheduler import scheduler, setup_scheduler  # noqa: E402
 
 
 @app.on_event("startup")
-async def init_db() -> None:
+async def startup_event() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    setup_scheduler()
+    scheduler.start()
+    logger.info("FastAPI: Background scheduler started.")
+
+
+@app.on_event("shutdown")
+async def shutdown_event() -> None:
+    scheduler.shutdown()
+    logger.info("FastAPI: Background scheduler shutdown.")
+

@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, and_
-from datetime import datetime
+from datetime import datetime, date
 from typing import Sequence, Tuple
 from app.features.leaderboard.models import Streak, WeeklyStat
 from app.features.groups.models import GroupMember
@@ -49,3 +49,34 @@ class LeaderboardRepository:
         
         result = await self.db.execute(stmt)
         return result.all()
+
+    async def upsert_weekly_stat(self, group_id: int, user_id: int, week_start: date, total_time: int, rank: int) -> WeeklyStat:
+        stmt = select(WeeklyStat).where(
+            and_(
+                WeeklyStat.group_id == group_id,
+                WeeklyStat.user_id == user_id,
+                WeeklyStat.week_start == week_start
+            )
+        )
+        result = await self.db.execute(stmt)
+        weekly_stat = result.scalar_one_or_none()
+        
+        if weekly_stat:
+            weekly_stat.total_time = total_time
+            weekly_stat.rank = rank
+        else:
+            weekly_stat = WeeklyStat(
+                group_id=group_id,
+                user_id=user_id,
+                week_start=week_start,
+                total_time=total_time,
+                rank=rank
+            )
+            self.db.add(weekly_stat)
+            
+        return weekly_stat
+
+    async def get_all_groups(self):
+        from app.features.groups.models import Group
+        result = await self.db.execute(select(Group))
+        return result.scalars().all()

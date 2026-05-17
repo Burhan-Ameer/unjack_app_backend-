@@ -11,6 +11,7 @@ firebase-admin==6.2.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
 redis==5.0.1
+apscheduler==3.10.4
 
 
 # testing libraries

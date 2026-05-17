@@ -11,6 +11,8 @@ class User(Base):
     created_at = Column(DateTime, server_default=func.now())
     is_active = Column(Boolean, default=True)
     last_active_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    avatar_url = Column(String, nullable=True)
+    fcm_token = Column(String, nullable=True)
 
     # Partial index for active users to optimize cron job queries
     __table_args__ = (
@@ -20,3 +22,11 @@ class User(Base):
             postgresql_where=(is_active == True),
         ),
     )
+
+
+class RateLimitBucket(Base):
+    __tablename__ = "rate_limit_buckets"
+
+    key = Column(String, primary_key=True, index=True)
+    count = Column(Integer, default=1, nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)

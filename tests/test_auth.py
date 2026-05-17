@@ -49,7 +49,7 @@ async def test_register_duplicate_username(test_client: httpx.AsyncClient):
     })
     
     assert response.status_code == 400
-    assert "already" in response.json()["detail"].lower() or "exists" in response.json()["detail"].lower()
+    assert "already" in response.json()["error"]["message"].lower() or "exists" in response.json()["error"]["message"].lower()
 
 @pytest.mark.asyncio
 async def test_register_duplicate_email(test_client: httpx.AsyncClient):
@@ -69,7 +69,7 @@ async def test_register_duplicate_email(test_client: httpx.AsyncClient):
     })
     
     assert response.status_code == 400
-    assert "already" in response.json()["detail"].lower() or "exists" in response.json()["detail"].lower()
+    assert "already" in response.json()["error"]["message"].lower() or "exists" in response.json()["error"]["message"].lower()
 
 @pytest.mark.asyncio
 async def test_register_invalid_payload(test_client: httpx.AsyncClient):

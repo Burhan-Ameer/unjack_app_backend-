@@ -1,41 +1,55 @@
-# from app.features.leaderboard.repository import LeaderboardRepository
-# from app.features.groups.repository import GroupRepository
-# from app.features.leaderboard.schemas import LeaderboardEntry, WeeklyLeaderboard, WinnerResponse
-# from datetime import date, timedelta
-# from typing import Optional
-# from sqlalchemy import select, desc, or_, and_
-# from app.features.auth.models import User
-# from app.features.groups.models import Group, GroupMember
+from datetime import date, timedelta, datetime
+from typing import Optional
+from app.features.leaderboard.repository import LeaderboardRepository
+from app.features.groups.repository import GroupRepository
+from app.features.leaderboard.schemas import LeaderboardEntry, WeeklyLeaderboard, WinnerResponse
 
-# class LeaderboardService:
-#     def __init__(self, leaderboard_repo: LeaderboardRepository, group_repo: GroupRepository):
-#         self.leaderboard_repo = leaderboard_repo
-#         self.group_repo = group_repo
+class LeaderboardService:
+    def __init__(self, leaderboard_repo: LeaderboardRepository, group_repo: GroupRepository):
+        self.leaderboard_repo = leaderboard_repo
+        self.group_repo = group_repo
 
-#     async def get_weekly_leaderboard(self, user_id: int, group_id: Optional[int] = None) -> WeeklyLeaderboard:
-#         today = date.today()
-#         week_start = today - timedelta(days=today.weekday())  # Monday
+    async def get_weekly_leaderboard(self, group_id: int) -> WeeklyLeaderboard:
+        today = date.today()
+        week_start_date = today - timedelta(days=today.weekday())  # Monday
+        
+        week_start = datetime.combine(week_start_date, datetime.min.time())
+        week_end = week_start + timedelta(days=7)
 
-#         # Get users from the specific group, or just the user if no group
-#         member_ids = [user_id]
-#         if group_id:
-#             group = self.group_repo.get_group_by_id(group_id)
-#             if group:
-#                 member_ids = [member.user_id for member in group.members]
+        group = await self.group_repo.get_group_by_id(group_id)
+        if not group:
+            raise ValueError("Group not found")
 
-#         # For now, simplified, assuming we have a way to get weekly stats with user info
-#         # In reality, might need a combined query or service method
-#         # Placeholder
-#         return WeeklyLeaderboard(week_start=week_start, entries=[])
+        user_times = await self.leaderboard_repo.get_group_focus_times(group_id, week_start, week_end)
 
-#     async def get_weekly_winner(self, user_id: int) -> WinnerResponse | None:
-#         leaderboard = await self.get_weekly_leaderboard(user_id)
-#         if leaderboard.entries:
-#             winner = leaderboard.entries[0]
-#             return WinnerResponse(  week_start = today - timedelta(days=today.weekday()),
-#                 user_id=winner.user_id,
-#                 username=winner.username,
-#                 total_time=winner.total_time,
-#                 week_start=leaderboard.week_start
-#             )
-#         return None
+        entries = []
+        rank = 1
+        for user, total_time in user_times:
+            entries.append(
+                LeaderboardEntry(
+                    user_id=user.id,
+                    username=user.username,
+                    total_time=int(total_time),
+                    rank=rank
+                )
+            )
+            rank += 1
+
+        return WeeklyLeaderboard(week_start=week_start_date, entries=entries)
+
+    async def get_weekly_winner(self, group_id: int) -> WinnerResponse | None:
+        try:
+            leaderboard = await self.get_weekly_leaderboard(group_id)
+        except ValueError:
+            return None
+            
+        if leaderboard.entries:
+            winner = leaderboard.entries[0]
+            if winner.total_time > 0:
+                return WinnerResponse(
+                    user_id=winner.user_id,
+                    username=winner.username,
+                    total_time=winner.total_time,
+                    week_start=leaderboard.week_start
+                )
+        return None

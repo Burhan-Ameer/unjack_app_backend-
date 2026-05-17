@@ -1,0 +1,394 @@
+UNJACK
+Backend — Full Implementation Plan
+FastAPI · PostgreSQL · Azure Container Apps · Docker · JWT · FCM
+1. Project Overview
+Unjack is an Android focus and app-blocking app targeting Gen Z users with a social accountability angle. This document covers the complete backend implementation — from tech stack selection through database design, folder structure, API contracts, cloud deployment, and phased delivery plan.
+
+Decision
+Choice & Rationale
+Framework
+FastAPI (Python) — fastest to ship solo, Pydantic validation built-in, auto Swagger docs
+Architecture
+Monolith — single app, multiple routers. Microservices add overhead with no benefit at this scale
+Database
+PostgreSQL on Azure Flexible Server — standard SQL, zero vendor lock-in, swap with one env var
+Auth
+DIY JWT with python-jose + bcrypt — no third-party dependency, works anywhere, ~50 lines
+Hosting
+Azure Container Apps — use $90 credit, Dockerized so move anywhere later
+Push
+Firebase FCM — free tier, winner-of-week and streak alerts
+Cron
+APScheduler inside FastAPI — Monday winner calculation, no separate service needed
+
+2. Tech Stack
+Backend
+Package
+Version
+Purpose
+fastapi
+0.111.0
+Web framework, routing, dependency injection
+uvicorn[standard]
+0.30.1
+ASGI server
+sqlalchemy
+2.0.30
+Async ORM (2.0 style)
+asyncpg
+0.29.0
+Async Postgres driver
+alembic
+1.13.1
+Database migrations
+python-jose[cryptography]
+3.3.0
+JWT encode/decode
+passlib[bcrypt]
+1.7.4
+Password hashing
+pydantic-settings
+2.2.1
+Settings from .env
+apscheduler
+3.10.4
+Monday cron for winner calc
+firebase-admin
+6.5.0
+FCM push notifications
+httpx
+0.27.0
+Async HTTP client
+pytest + pytest-asyncio
+latest
+Testing
+
+Cloud Stack (Azure — Cloud Agnostic)
+Service
+Azure Name
+Monthly Cost
+Compute
+Azure Container Apps
+~$5–10/mo
+Database
+Azure PostgreSQL Flexible Server
+~$15–20/mo
+File Storage
+Azure Blob Storage (avatars)
+~$1–2/mo
+Push Notifications
+Firebase FCM (outside Azure)
+Free
+Container Registry
+Azure Container Registry
+~$5/mo
+CI/CD
+GitHub Actions
+Free
+TOTAL
+
+~$26–37/mo
+Your $90 Azure credit provides approximately 2–3 months of free runway. The app is fully cloud-agnostic — all Azure-specific config lives in deployment files only. Switching to Railway, Render, or any VPS requires changing one environment variable: DATABASE_URL.
+
+3. Architecture
+System Diagram
+React Native App (Android)        │        │  HTTPS / REST        ▼┌─────────────────────────────────────────────┐│         Docker Container (FastAPI)           ││  ┌──────────┐  ┌──────────┐  ┌──────────┐  ││  │  /auth   │  │/sessions │  │  /stats  │  ││  └──────────┘  └──────────┘  └──────────┘  ││  ┌──────────┐  ┌────────────────────────┐  ││  │ /friends │  │     /leaderboard        │  ││  └──────────┘  └────────────────────────┘  ││  ┌──────────────────────────────────────┐  ││  │  APScheduler (Monday cron)            │  ││  └──────────────────────────────────────┘  │└───────────────────┬─────────────────────────┘                    │  asyncpg connection pool                    ▼        PostgreSQL (Azure Flexible Server)                    │                    ▼        Firebase FCM ──► Android devices
+
+MCRS — Microservices-Ready Monolith Structure
+The app is built as a monolith but with MCRS (Modular Clean Router Structure) — each feature domain is fully self-contained (router, service, schema, model). When a feature outgrows the monolith, it can be extracted into its own service with minimal refactoring.
+
+Domain
+What it owns
+Extract when
+auth
+Register, login, JWT, refresh
+Never — auth stays central
+sessions
+Log focus sessions, history
+100k+ session writes/day
+stats
+Streaks, totals, leaderboard reads
+Heavy analytics queries
+friends
+Requests, accepts, list
+Social graph gets complex
+leaderboard
+Weekly ranks, winner
+Calculation becomes expensive
+notifications
+FCM token storage, send
+High notification volume
+
+4. Folder Structure
+unjack-backend/├── app/│   ├── main.py                  # FastAPI app, lifespan, CORS, router mount│   ││   ├── api/│   │   └── v1/│   │       ├── router.py        # Central router — includes all endpoint routers│   │       └── endpoints/│   │           ├── auth.py      # POST /register, /login, /refresh│   │           ├── sessions.py  # POST /sessions, GET /sessions/history│   │           ├── stats.py     # GET /stats/me, /stats/{user_id}│   │           ├── friends.py   # POST /friends/request, /accept, GET /friends│   │           └── leaderboard.py # GET /leaderboard/weekly, /winner│   ││   ├── core/│   │   └── config.py            # Pydantic Settings — reads from .env│   ││   ├── db/│   │   └── session.py           # Async engine, SessionLocal, Base, get_db()│   ││   ├── models/│   │   └── models.py            # SQLAlchemy ORM models (all tables)│   ││   ├── schemas/│   │   ├── auth.py              # RegisterRequest, LoginRequest, TokenResponse│   │   ├── session.py           # SessionCreate, SessionResponse│   │   ├── stats.py             # StatsResponse, StreakResponse│   │   ├── friend.py            # FriendRequest, FriendResponse│   │   └── leaderboard.py       # LeaderboardEntry, WinnerResponse│   ││   ├── services/│   │   ├── auth_service.py      # Business logic: hash, verify, create token│   │   ├── session_service.py   # Write session, update streak│   │   ├── stats_service.py     # Aggregate stats, streak calculation│   │   ├── friend_service.py    # Friend graph logic│   │   ├── leaderboard_service.py # Rank calculation per friend group│   │   └── fcm_service.py       # Firebase push notification sending│   ││   └── utils/│       ├── jwt.py               # create_access_token, decode_token, get_current_user│       └── hashing.py           # hash_password, verify_password│├── tests/│   ├── unit/                    # Service-level unit tests (mock DB)│   └── integration/             # Full request/response tests (test DB)│├── .github/│   └── workflows/│       └── deploy.yml           # GitHub Actions: test → build → push → deploy│├── Dockerfile                   # Multi-stage build, non-root user├── .env.example                 # Template — copy to .env, never commit .env├── requirements.txt├── .gitignore                   # Excludes .env, firebase-credentials.json└── README.md
+
+
+5. Database Schema
+Tables
+users
+Column
+Type
+Constraint
+Notes
+id
+UUID
+PK, default uuid4
+Primary key
+username
+VARCHAR(50)
+UNIQUE, NOT NULL
+Indexed
+email
+VARCHAR(255)
+UNIQUE, NOT NULL
+Indexed
+password_hash
+VARCHAR(255)
+NOT NULL
+bcrypt hash
+avatar_url
+TEXT
+nullable
+Azure Blob URL
+fcm_token
+TEXT
+nullable
+Updated on login
+created_at
+TIMESTAMP
+NOT NULL
+UTC
+
+app_sessions
+Column
+Type
+Constraint
+Notes
+id
+UUID
+PK
+
+user_id
+UUID
+FK → users(id)
+CASCADE delete
+app_name
+VARCHAR(255)
+NOT NULL
+e.g. Instagram
+app_package
+VARCHAR(255)
+nullable
+e.g. com.instagram.android
+duration_sec
+BIGINT
+NOT NULL
+Seconds focused
+blocked_at
+DATE
+NOT NULL
+Day of session
+created_at
+TIMESTAMP
+
+UTC
+
+streaks
+Column
+Type
+Constraint
+Notes
+id
+UUID
+PK
+
+user_id
+UUID
+FK, UNIQUE
+One row per user
+current_streak
+INTEGER
+NOT NULL, default 0
+Days active in a row
+longest_streak
+INTEGER
+NOT NULL, default 0
+All-time best
+last_active
+DATE
+nullable
+Used to detect broken streak
+
+friendships
+Column
+Type
+Constraint
+Notes
+id
+UUID
+PK
+
+user_id
+UUID
+FK → users
+Requester
+friend_id
+UUID
+FK → users
+Addressee
+status
+ENUM
+pending | accepted
+Default: pending
+created_at
+TIMESTAMP
+
+UTC
+
+weekly_stats
+Column
+Type
+Constraint
+Notes
+id
+UUID
+PK
+
+user_id
+UUID
+FK → users
+CASCADE delete
+week_start
+DATE
+NOT NULL
+Always a Monday
+total_focus_sec
+BIGINT
+default 0
+Aggregated focus time
+rank
+INTEGER
+nullable
+Set by Monday cron
+
+Entity Relationships
+users          1 ──── 1    streaksusers          1 ──── N    app_sessionsusers          1 ──── N    weekly_statsusers          1 ──── N    friendships  (as requester)users          1 ──── N    friendships  (as addressee)
+
+
+6. API Contract
+All endpoints are prefixed with /api/v1. Authenticated endpoints require Authorization: Bearer <access_token> header.
+
+Auth — /api/v1/auth
+Method
+Endpoint
+Body
+Response
+POST
+/register
+username, email, password
+201 { user_id, username }
+POST
+/login
+email, password
+200 { access_token, refresh_token, token_type }
+POST
+/refresh
+refresh_token
+200 { access_token }
+
+Sessions — /api/v1/sessions  🔒
+POST  /          { app_name, app_package, duration_sec, blocked_at }                 → 201 { session_id, user_id, duration_sec, blocked_at }GET   /history   → 200 [{ session_id, app_name, duration_sec, blocked_at }, ...]
+
+Stats — /api/v1/stats  🔒
+GET   /me         → 200 {                        current_streak, longest_streak, last_active,                        total_focus_sec, total_focus_hours,                        top_blocked_apps: [{ app_name, total_sec }]                       }GET   /{user_id}  → 200  (same shape, friends only)
+
+Friends — /api/v1/friends  🔒
+POST  /request             { friend_username }  → 201 { friendship_id }POST  /accept/{id}         {}                  → 200 { status: 'accepted' }GET   /                    → 200 [{ user_id, username, avatar_url }]GET   /requests            → 200 [{ friendship_id, from_user, created_at }]DELETE /remove/{user_id}   → 204
+
+Leaderboard — /api/v1/leaderboard  🔒
+GET   /weekly   → 200 {                      week_start,                      entries: [{ rank, username, avatar_url, total_focus_sec }]                     }GET   /winner   → 200 {                      week_start,                      winner: { username, avatar_url, total_focus_sec }                     }
+
+7. Winner of Week Logic
+APScheduler runs inside the FastAPI process. Every Monday at 00:05 UTC it runs the winner calculation job.
+
+Monday 00:05 UTC     │     ▼For each user: aggregate app_sessions WHERE blocked_at BETWEEN               last Monday AND yesterday → SUM(duration_sec)     │     ▼Write / upsert weekly_stats rows (user_id, week_start, total_focus_sec)     │     ▼For each friendship group: rank users by total_focus_sec DESC     │     ▼Set weekly_stats.rank for all users in that group     │     ▼Find rank=1 user per group → send FCM push to their device     "You won this week! 🏆 Your focus time beat all your friends."
+
+
+8. Deployment (Azure Container Apps)
+Environment Variables
+Variable
+Value
+APP_ENV
+production
+SECRET_KEY
+random 64-char string (never commit)
+ALGORITHM
+HS256
+ACCESS_TOKEN_EXPIRE_MINUTES
+30
+REFRESH_TOKEN_EXPIRE_DAYS
+7
+DATABASE_URL
+postgresql+asyncpg://user:pass@host:5432/unjack
+FIREBASE_CREDENTIALS_PATH
+/secrets/firebase-credentials.json
+ALLOWED_ORIGINS
+https://yourapp.com (or * for dev)
+
+CI/CD Pipeline (GitHub Actions)
+Push to main branch     │     ├── Run: pytest tests/ -v     │         (fails here = no deploy)     │     ├── Build Docker image     │         docker build -t <registry>/unjack-api:<sha> .     │     ├── Push to Azure Container Registry     │     └── Deploy to Azure Container Apps               az containerapp update --image <registry>/unjack-api:<sha>
+
+Cloud Agnostic Guarantee
+The app binary never imports Azure SDKs. All cloud config is in environment variables and deployment YAML files. To migrate away from Azure:
+Change DATABASE_URL env var to new Postgres host
+Push Docker image to new registry
+Run container on new platform (Railway, Render, VPS, GKE)
+Zero code changes required
+
+9. Implementation Phases
+#
+Phase
+Deliverables
+Week
+1
+Scaffold + Docker
+FastAPI app, folder structure, Dockerfile, .env, /health endpoint
+1
+2
+DB Models + Alembic
+SQLAlchemy models, Alembic init, first migration, asyncpg pool
+1
+3
+Auth (JWT)
+POST /register, /login, /refresh, bcrypt hashing, JWT middleware
+2
+4
+Sessions + Stats
+POST /sessions, streak calculation, GET /stats/me and /{user_id}
+2
+5
+Friends + Leaderboard
+Friend requests, accept, list, weekly leaderboard GET endpoints
+3
+6
+Winner Cron + FCM
+APScheduler job, rank calculation, Firebase push notifications
+3
+7
+Deploy to Azure
+ACR image push, Container App deploy, GitHub Actions CI/CD pipeline
+4
+
+10. Quick Start
+Local Development
+# Clone and entergit clone https://github.com/yourname/unjack-backendcd unjack-backend# Virtual environmentpython -m venv venvsource venv/bin/activate# Install dependenciespip install -r requirements.txt# Environment variablescp .env.example .env# Edit .env: set DATABASE_URL and SECRET_KEY# Run (hot reload)uvicorn app.main:app --reload# Swagger UI at:# http://localhost:8000/docs
+
+Docker
+docker build -t unjack-api .docker run -p 8000:8000 --env-file .env unjack-api
+
+Next Prompt to Run
+To implement Phase 3 (Auth), paste this exact prompt into Claude:
+"Write FastAPI auth endpoints for Unjack: register, login, refresh token using JWT with python-jose and bcrypt. Include Pydantic schemas, SQLAlchemy async queries, and the get_current_user dependency."
+
+
+Unjack Backend — Full Implementation Plan  ·  v1.0

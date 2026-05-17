@@ -17,10 +17,11 @@ class GroupRepository:
         member = GroupMember(group_id=group.id, user_id=creator_id, is_admin=True)
         self.db.add(member) 
         
+        group_id = group.id
         await self.db.commit()
         
         # Reload with relationships for Pydantic serialization
-        stmt = select(Group).options(selectinload(Group.members)).filter(Group.id == group.id)
+        stmt = select(Group).options(selectinload(Group.members)).filter(Group.id == group_id)
         result = await self.db.execute(stmt)
         return result.scalars().first()
 

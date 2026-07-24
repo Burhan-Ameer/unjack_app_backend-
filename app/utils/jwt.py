@@ -92,4 +92,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
     if user is None:
         logger.warning("Token user not found username=%s", username)
         raise HTTPException(status_code=404, detail="User not found")
+        
+    # Store authenticated user ID in task-local context variable
+    from app.core.db_logging import user_id_ctx
+    user_id_ctx.set(user.id)
+    
     return user
+

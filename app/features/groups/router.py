@@ -107,10 +107,13 @@ async def delete_group(
     - **Returns**: HTTP 204 No Content on successful deletion.
     - **Raises 404**: If the group does not exist.
     """
-    success = await service.delete_group(group_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Group not found")
-    return
+    try:
+        success = await service.delete_group(group_id, current_user.id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Group not found")
+        return
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
 
 @router.post("/{group_id}/add", response_model=GroupMemberResponse)
 async def add_member(
@@ -127,11 +130,13 @@ async def add_member(
     - **Returns**: The newly created group member record.
     """
     try:
-        member = await service.add_user_to_group(group_id, payload.user_id)
+        member = await service.add_user_to_group(group_id, payload.user_id, current_user.id)
         logger.info("User added to group group_id=%s user_id=%s", group_id, payload.user_id)
         return member
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
     except Exception:
         logger.exception("Failed adding user to group group_id=%s user_id=%s", group_id, payload.user_id)
         raise HTTPException(status_code=500, detail="Failed to add user to group")

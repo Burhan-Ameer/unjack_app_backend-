@@ -3,7 +3,7 @@ from typing import Optional
 from app.features.leaderboard.repository import LeaderboardRepository
 from app.features.groups.repository import GroupRepository
 from app.features.leaderboard.schemas import LeaderboardEntry, WeeklyLeaderboard, WinnerResponse
-
+from app.features.notifications.service import NotificationService
 class LeaderboardService:
     def __init__(self, leaderboard_repo: LeaderboardRepository, group_repo: GroupRepository):
         self.leaderboard_repo = leaderboard_repo
@@ -75,7 +75,7 @@ class LeaderboardService:
         groups = await self.leaderboard_repo.get_all_groups()
         logger.info(f"Calculating weekly winners for {len(groups)} groups for week starting {week_start_date}")
         
-        from app.features.notifications.service import NotificationService
+        
         notification_service = NotificationService()
         
         for group in groups:

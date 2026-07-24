@@ -1,6 +1,5 @@
 import pytest
 import httpx
-from unittest.mock import patch
 from app.main import app
 
 # We use an ASGITransport to test the FastAPI app directly without starting a server

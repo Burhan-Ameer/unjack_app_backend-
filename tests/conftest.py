@@ -16,7 +16,7 @@ test_engine = create_async_engine(
 )
 
 TestingSessionLocal = async_sessionmaker(
-    autocommit=False, autoflush=False, bind=test_engine, class_=AsyncSession
+    autocommit=False, autoflush=False, bind=test_engine, class_=AsyncSession, expire_on_commit=False
 )
 
 @pytest_asyncio.fixture(scope="function", autouse=True)
@@ -62,3 +62,26 @@ def override_auth():
     fake_user = type("User", (), {"id": 1, "email": "burhan@test.com"})()
     app.dependency_overrides[get_current_user] = lambda: fake_user
     yield
+
+class FakeRedis:
+    def __init__(self):
+        self.data = {}
+    async def get(self, key: str):
+        return self.data.get(key)
+    async def set(self, key: str, value: str, ex=None):
+        self.data[key] = value
+    async def delete(self, key: str):
+        self.data.pop(key, None)
+    async def incrby(self, key: str, amount: int):
+        current = self.data.get(key, 0)
+        if isinstance(current, str):
+            current = int(current)
+        self.data[key] = str(int(current) + amount)
+        return self.data[key]
+
+@pytest.fixture(autouse=True)
+def override_redis():
+    from app.dependencies import get_redis_client
+    fake_redis = FakeRedis()
+    app.dependency_overrides[get_redis_client] = lambda: fake_redis
+    yield fake_redis

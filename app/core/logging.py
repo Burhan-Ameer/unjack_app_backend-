@@ -10,3 +10,10 @@ def setup_logging() -> None:
         level=log_level,
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     )
+    
+    # Attach our non-blocking DB handler to root logger
+    from app.core.db_logging import AsyncQueueLogHandler
+    db_handler = AsyncQueueLogHandler()
+    db_handler.setLevel(logging.WARNING)
+    logging.getLogger().addHandler(db_handler)
+

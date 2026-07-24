@@ -55,6 +55,23 @@ class GroupRepository:
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_groups_by_user(self, user_id: int) -> List[Group]:
+        stmt = (
+            select(Group)
+            .join(GroupMember, GroupMember.group_id == Group.id)
+            .where(GroupMember.user_id == user_id)
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def update_group_streak(self, group_id: int, highest_streak: int, top_user_id: int) -> None:
+        stmt = select(Group).filter(Group.id == group_id)
+        result = await self.db.execute(stmt)
+        group = result.scalar_one_or_none()
+        if group:
+            group.highest_streak = highest_streak
+            group.top_user_id = top_user_id
+
     async def delete_group(self, group_id: int) -> bool:
         group = await self.get_group_by_id(group_id)
         if group:
@@ -76,9 +93,3 @@ class GroupRepository:
             return result.scalars().first()
         return None
 
-    async def update_highest_streak(self, group_id: int, user_id: int, streak: int):
-        group = await self.get_group_by_id(group_id)
-        if group and streak > group.highest_streak:
-            group.highest_streak = streak
-            group.top_user_id = user_id
-            await self.db.commit()

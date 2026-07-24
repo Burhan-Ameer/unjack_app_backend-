@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     sqlalchemy_echo: bool = False
     auth_rate_limit_per_minute: int = 15
     auth_rate_limit_window_seconds: int = 60
-    redis_url: str = "redis://redis:6379/0"
+    redis_url: str = "redis://redis:6379/3"
     rate_limit_key_prefix: str = "rate_limit:auth"
 
     model_config = SettingsConfigDict(

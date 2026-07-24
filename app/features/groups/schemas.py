@@ -42,28 +42,20 @@ class GroupUpdate(BaseModel):
         return v
 
 class GroupMemberResponse(BaseModel):
-    """
-    Schema representing a user's membership in a Group.
-    """
     id: int
     user_id: int
     joined_at: datetime
 
-    class Config:
-        from_attributes = True  # Allows Pydantic to read from ORM models
+    model_config = {"from_attributes": True}
 
 class GroupResponse(GroupBase):
-    """
-    Schema for a full Group response, including its statistics and current members.
-    """
     id: int
     created_at: datetime
     highest_streak: int
     top_user_id: Optional[int] = None
     members: List[GroupMemberResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class GroupMemberAdd(BaseModel):
     """

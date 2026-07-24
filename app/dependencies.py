@@ -24,12 +24,26 @@ def get_leaderboard_repository(db: AsyncSession = Depends(get_db)) -> Leaderboar
 def get_group_repository(db: AsyncSession = Depends(get_db)) -> GroupRepository:
     return GroupRepository(db)
 
+from redis.asyncio import Redis
+from app.core.config import settings
+
+# Initialize Redis client with connection pool
+redis_client = Redis.from_url(settings.redis_url, encoding="utf-8", decode_responses=True)
+
+def get_redis_client() -> Redis:
+    return redis_client
+
 # Services
 def get_auth_service(user_repo: UserRepository = Depends(get_user_repository)) -> AuthService:
     return AuthService(user_repo)
 
-def get_session_service(session_repo: SessionRepository = Depends(get_session_repository)) -> SessionService:
-    return SessionService(session_repo)
+def get_session_service(
+    session_repo: SessionRepository = Depends(get_session_repository),
+    leaderboard_repo: LeaderboardRepository = Depends(get_leaderboard_repository),
+    group_repo: GroupRepository = Depends(get_group_repository),
+    redis: Redis = Depends(get_redis_client)
+) -> SessionService:
+    return SessionService(session_repo, leaderboard_repo, group_repo, redis)
 
 def get_leaderboard_service(
     leaderboard_repo: LeaderboardRepository = Depends(get_leaderboard_repository),

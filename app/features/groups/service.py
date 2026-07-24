@@ -62,31 +62,23 @@ class GroupService:
             raise ValueError(f"Group with name '{name}' already exists")
         return await self.repository.update_group(group_id, name)
 
-    async def delete_group(self, group_id: int) -> bool:
-        """
-        Delete a group by its ID.
-        
-        Returns:
-            True if the deletion was successful, False if the group was not found.
-        """
+    async def delete_group(self, group_id: int, user_id: int) -> bool:
+        membership = await self.repository.get_membership(group_id, user_id)
+        if not membership or not membership.is_admin:
+            raise PermissionError("Only group administrators can delete the group")
         return await self.repository.delete_group(group_id)
 
-    async def add_user_to_group(self, group_id: int, user_id: int) -> GroupMember:
-        """
-        Add a specific user to a group.
-        
-        Raises:
-            ValueError: If the group does not exist, or if the user is already a member.
-        Returns:
-            The newly created GroupMember association record.
-        """
+    async def add_user_to_group(self, group_id: int, user_id: int, requester_id: int) -> GroupMember:
+        membership = await self.repository.get_membership(group_id, requester_id)
+        if not membership or not membership.is_admin:
+            raise PermissionError("Only group administrators can add members")
+
         group = await self.repository.get_group_by_id(group_id)
         if not group:
             raise ValueError("Group not found")
-        
-        # Check if user already in group
+
         for member in group.members:
             if member.user_id == user_id:
                 raise ValueError("User already in group")
-                
+
         return await self.repository.add_member(group_id, user_id)

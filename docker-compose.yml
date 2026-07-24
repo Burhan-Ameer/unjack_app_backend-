@@ -4,7 +4,19 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "6380:6379"
+
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: unjack
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   backend:
     build: .
@@ -16,7 +28,13 @@ services:
       - "8000:8000"
     depends_on:
       - redis
+      - db
     env_file:
       - .env
     environment:
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://redis:6379/3
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/unjack
+
+volumes:
+  postgres_data:
+

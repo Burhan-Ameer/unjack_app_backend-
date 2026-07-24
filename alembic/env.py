@@ -14,7 +14,7 @@ from app.features.auth import models as auth_models  # noqa: F401
 from app.features.leaderboard import models as leaderboard_models  # noqa: F401
 from app.features.sessions import models as sessions_models  # noqa: F401
 from app.features.groups import models as groups_models  # noqa: F401
-
+from app.features.logs import models as logs_models 
 from sqlalchemy.engine import make_url
 
 config = context.config

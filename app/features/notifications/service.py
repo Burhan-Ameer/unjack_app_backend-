@@ -1,8 +1,8 @@
+import asyncio
 from firebase_admin import messaging
 
 class NotificationService:
     def __init__(self):
-        # Initialize if needed
         pass
 
     async def send_push_notification(self, fcm_token: str, title: str, body: str):
@@ -14,7 +14,8 @@ class NotificationService:
             token=fcm_token,
         )
         try:
-            response = messaging.send(message)
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(None, messaging.send, message)
             return response
         except Exception as e:
             print(f"Error sending notification: {e}")

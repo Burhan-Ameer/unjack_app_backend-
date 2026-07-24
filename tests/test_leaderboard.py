@@ -12,26 +12,36 @@ def test_client():
 @pytest.mark.asyncio
 async def test_get_weekly_leaderboard(test_client: httpx.AsyncClient, db_session):
     """Test retrieving weekly leaderboard for a group with aggregated session data."""
-    # 1. Create the user in the database (matching the mocked current_user id=1)
+    from unittest.mock import patch
+    import datetime as dt
+
     user = DBUser(id=1, username="burhan", email="burhan@test.com", hashed_password="hashedpassword")
     db_session.add(user)
     await db_session.commit()
 
-    # 2. Create a group (which adds user 1 as an admin member)
     response = await test_client.post("/api/v1/groups/", json={"name": "Focus Warriors"})
     assert response.status_code == 201
     group_id = response.json()["id"]
 
-    # 3. Log a focus session for the user
-    await test_client.post("/api/v1/sessions/", json={
-        "app_name": "YouTube",
-        "package": "com.google.android.youtube",
-        "duration": 5400, # 1.5 hours
-        "blocked_date": datetime.now(timezone.utc).isoformat()
-    })
+    start_time = dt.datetime(2026, 6, 14, 12, 0, 0, tzinfo=dt.timezone.utc)
+    with patch("app.features.sessions.service.datetime") as mock_datetime:
+        mock_datetime.now.return_value = start_time
+        await test_client.post("/api/v1/sessions/start", json={
+            "app_name": "YouTube",
+            "package": "com.google.android.youtube"
+        })
 
-    # 4. Retrieve the weekly leaderboard
-    response = await test_client.get(f"/api/v1/leaderboard/{group_id}/weekly")
+    stop_time = start_time + dt.timedelta(seconds=5400)
+    with patch("app.features.sessions.service.datetime") as mock_datetime:
+        mock_datetime.now.return_value = stop_time
+        mock_datetime.fromisoformat = dt.datetime.fromisoformat
+        await test_client.post("/api/v1/sessions/stop")
+
+    freeze_week = dt.date(2026, 6, 14)  # Sunday — week_start = June 8, covers June 14 session
+    with patch("app.features.leaderboard.service.date") as mock_service_date:
+        mock_service_date.today.return_value = freeze_week
+        mock_service_date.side_effect = lambda *args, **kwargs: dt.date(*args, **kwargs) if args else freeze_week
+        response = await test_client.get(f"/api/v1/leaderboard/{group_id}/weekly")
     assert response.status_code == 200, response.text
     data = response.json()
     assert "entries" in data
@@ -45,26 +55,36 @@ async def test_get_weekly_leaderboard(test_client: httpx.AsyncClient, db_session
 @pytest.mark.asyncio
 async def test_get_weekly_winner(test_client: httpx.AsyncClient, db_session):
     """Test retrieving the weekly winner for a group."""
-    # 1. Create the user in the database
+    from unittest.mock import patch
+    import datetime as dt
+
     user = DBUser(id=1, username="burhan", email="burhan@test.com", hashed_password="hashedpassword")
     db_session.add(user)
     await db_session.commit()
 
-    # 2. Create a group
     response = await test_client.post("/api/v1/groups/", json={"name": "Streak Kings"})
     assert response.status_code == 201
     group_id = response.json()["id"]
 
-    # 3. Log a focus session
-    await test_client.post("/api/v1/sessions/", json={
-        "app_name": "Facebook",
-        "package": "com.facebook.katana",
-        "duration": 7200, # 2 hours
-        "blocked_date": datetime.now(timezone.utc).isoformat()
-    })
+    start_time = dt.datetime(2026, 6, 14, 12, 0, 0, tzinfo=dt.timezone.utc)
+    with patch("app.features.sessions.service.datetime") as mock_datetime:
+        mock_datetime.now.return_value = start_time
+        await test_client.post("/api/v1/sessions/start", json={
+            "app_name": "Facebook",
+            "package": "com.facebook.katana"
+        })
 
-    # 4. Retrieve the winner
-    response = await test_client.get(f"/api/v1/leaderboard/{group_id}/winner")
+    stop_time = start_time + dt.timedelta(seconds=7200)
+    with patch("app.features.sessions.service.datetime") as mock_datetime:
+        mock_datetime.now.return_value = stop_time
+        mock_datetime.fromisoformat = dt.datetime.fromisoformat
+        await test_client.post("/api/v1/sessions/stop")
+
+    freeze_week = dt.date(2026, 6, 14)
+    with patch("app.features.leaderboard.service.date") as mock_service_date:
+        mock_service_date.today.return_value = freeze_week
+        mock_service_date.side_effect = lambda *args, **kwargs: dt.date(*args, **kwargs) if args else freeze_week
+        response = await test_client.get(f"/api/v1/leaderboard/{group_id}/winner")
     assert response.status_code == 200, response.text
     data = response.json()
     

@@ -29,6 +29,8 @@ class AuthService:
         if not user or not verify_password(login.password, user.hashed_password):
             logger.info("Authentication failed email=%s", login.email)
             return None
+        user.last_active_at = datetime.utcnow()
+        await self.user_repo.db.commit()
         logger.debug("Authentication succeeded user_id=%s", user.id)
         return user
 

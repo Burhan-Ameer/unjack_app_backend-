@@ -42,7 +42,7 @@ class LeaderboardRepository:
                     AppSession.blocked_date < week_end
                 )
             )
-            .where(GroupMember.group_id == group_id)
+            .where(GroupMember.group_id == group_id, User.is_active == True)
             .group_by(User.id)
             .order_by(desc('total_time'))
         )

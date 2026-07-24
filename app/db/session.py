@@ -18,7 +18,7 @@ if db_url.drivername.endswith("+asyncpg") and sslmode is not None:
 
 engine = create_async_engine(db_url, echo=settings.sqlalchemy_echo, connect_args=connect_args)
 AsyncSessionLocal = sessionmaker(
-    autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
+    autocommit=False, autoflush=False, bind=engine, class_=AsyncSession, expire_on_commit=False
 )
 
 class Base(DeclarativeBase):

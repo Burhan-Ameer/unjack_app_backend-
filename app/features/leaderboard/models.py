@@ -9,6 +9,7 @@ class Streak(Base):
     current_streak = Column(Integer, default=0)
     longest_streak = Column(Integer, default=0)
     total_focus_time = Column(BigInteger, default=0)  # in seconds
+    last_active = Column(Date, nullable=True)
 
 class WeeklyStat(Base):
     __tablename__ = "weekly_stats"

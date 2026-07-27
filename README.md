@@ -1,99 +1,76 @@
 # Unjack Backend
 
-A FastAPI-based backend for the Unjack app, a focus and app-blocking tool. It provides user authentication, session logging, stats tracking, friend management, and weekly leaderboards with push notifications.
+A FastAPI-based backend for the Unjack app, a focus and app-blocking tool. It provides user authentication, session logging, stats tracking, group management, and weekly leaderboards.
+
+---
 
 ## Features
 
-- **Authentication**: JWT-based auth with registration, login, and token refresh.
-- **Sessions**: Log and retrieve focus sessions.
-- **Stats**: Track streaks, total focus time, and top blocked apps.
-- **Friends**: Manage friend requests and relationships.
-- **Leaderboard**: Weekly rankings among friends, with winner notifications.
-- **Cron Job**: Automated weekly winner calculation and FCM push alerts.
+* **Authentication**: JWT-based auth with registration, login, token refresh, and password hashing using Argon2.
+* **Sessions**: Log and retrieve focus sessions using a secure start/stop handshake flow (stored temporarily in Redis to prevent leaderboard cheating).
+* **Groups**: Create, manage, and join groups (enforces a business rule of **maximum 60 members** per group).
+* **Leaderboard**: Weekly rankings within groups, with winner calculation.
+* **Cron Job**: Automated weekly winner calculation and persistence.
+* **Database Logging**: Asynchronous, non-blocking queue logging engine that captures logs (with tracebacks, request IDs, and user IDs) to PostgreSQL.
+* **Rate Limiting**: Redis-backed sliding window rate limiter (restricts auth endpoints to 15 requests per 15 minutes).
+
+---
 
 ## Architecture
 
-- **Model-Controller-Service-Schema**: Endpoints (controllers) call services, which interact with SQLAlchemy models. Pydantic schemas handle validation.
-- Async operations with SQLAlchemy.
-- Firebase Cloud Messaging (FCM) for notifications.
+This project is built using a **Modular Clean Router Structure (MCRS)**:
+* **Features Domain Modules**: Code is separated by features under [app/features/](file:///c:/Users/Admin/Desktop/unjack_app_backend-/app/features) (e.g., `auth`, `sessions`, `groups`, `leaderboard`, `logs`, `notifications`, `scheduler`). Each domain folder encapsulates its own router, models, schemas, repositories, and services.
+* **Async Database Connection**: Uses SQLAlchemy and `asyncpg` to communicate asynchronously with PostgreSQL.
+* **FastAPI Lifespan Events**: Spawns background workers and schedulers at application startup and gracefully tears them down on shutdown.
+
+---
 
 ## Setup
 
-1. Install dependencies:
-   ```
+1. **Install dependencies**:
+   ```bash
    pip install -r requirements.txt
    ```
 
-2. Set up environment variables:
-   - Copy `.env.example` to `.env`
-   - Fill values for your environment
-   ```
-   DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/db?sslmode=require
-   SECRET_KEY=your_secret_key
-   ALGORITHM=HS256
-   ACCESS_TOKEN_EXPIRE_MINUTES=30
-   REFRESH_TOKEN_EXPIRE_DAYS=7
-   FCM_SERVER_KEY=your_fcm_key
-   LOG_LEVEL=INFO
-   SQLALCHEMY_ECHO=false
-   AUTH_RATE_LIMIT_PER_MINUTE=15
-   AUTH_RATE_LIMIT_WINDOW_SECONDS=60
-   RATE_LIMIT_KEY_PREFIX=rate_limit:auth
-   REDIS_URL=redis://localhost:6379/0
-   ```
+2. **Set up environment variables**:
+   * Copy `.env.example` to `.env`
+   * Fill values for your local environment (database URL, secret key, etc.)
 
-   Notes:
-   - Supabase: use your project connection string with `?sslmode=require`.
-   - Azure PostgreSQL (production): use `username@servername` and keep `?sslmode=require`.
-
-3. Run database migrations (if using Alembic):
-   ```
+3. **Run database migrations**:
+   ```bash
    alembic upgrade head
    ```
 
-4. Start the server:
-   ```
+4. **Start the server**:
+   ```bash
    uvicorn app.main:app --reload
    ```
 
-## API Documentation
+---
 
-Once running, visit `http://localhost:8000/docs` for interactive API docs.
+## Docker Setup
 
-## Operational Endpoints
+To spin up the entire application stack (FastAPI Backend, PostgreSQL DB, and Redis) locally with hot-reloading:
+```bash
+docker compose up --build -d
+```
 
-- `GET /api/v1/health/live` for process liveness checks.
-- `GET /api/v1/health` for readiness checks including a DB probe.
+---
 
-## Rate Limiting
+## API & Testing Guides
 
-- Auth endpoints use a Redis-backed sliding window limiter.
-- Configure via `AUTH_RATE_LIMIT_PER_MINUTE`, `AUTH_RATE_LIMIT_WINDOW_SECONDS`, `RATE_LIMIT_KEY_PREFIX`, and `REDIS_URL`.
-- For multi-container production, all backend instances must use the same shared `REDIS_URL`.
-- Use env-specific prefixes like `RATE_LIMIT_KEY_PREFIX=rate_limit:prod:auth` to isolate environments.
+All additional project documentation is organized inside the [docs/](file:///c:/Users/Admin/Desktop/unjack_app_backend-/docs) directory:
+* [cURL Testing Guide](file:///c:/Users/Admin/Desktop/unjack_app_backend-/docs/curl_test_guide.md): Raw `curl` queries for every endpoint.
+* [API Testing Guide](file:///c:/Users/Admin/Desktop/unjack_app_backend-/docs/api_testing_guide.md): Comprehensive request and response details.
+* [Database Logging Guide](file:///c:/Users/Admin/Desktop/unjack_app_backend-/docs/TEST_GUIDE.md): Structural sequencing and request flows.
 
-### Managed Redis Examples
+Once running, visit `http://localhost:8000/docs` for the interactive Swagger API documentation.
 
-- Aiven Redis (TLS): `rediss://default:<password>@<service-name>.aivencloud.com:<port>/0`
-- Upstash Redis (TLS): `rediss://default:<password>@<region>.upstash.io:6379/0`
-- Azure Cache for Redis (TLS): `rediss://:<access-key>@<name>.redis.cache.windows.net:6380/0`
+---
 
 ## Testing
 
-Run tests with:
-```
+Run the automated test suite locally:
+```bash
 pytest
 ```
-
-## Directory Structure
-
-- `app/`: Main application code
-  - `api/v1/`: API endpoints and router
-  - `core/`: Configuration
-  - `db/`: Database session
-  - `models/`: SQLAlchemy models
-  - `schemas/`: Pydantic schemas
-  - `services/`: Business logic
-  - `utils/`: Utilities (JWT, hashing)
-- `tests/`: Test files
-- `requirements.txt`: Dependencies# unjack_app_backend-

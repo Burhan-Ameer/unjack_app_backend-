@@ -77,6 +77,10 @@ class GroupService:
         if not group:
             raise ValueError("Group not found")
 
+        # Enforce maximum 60 members limit
+        if len(group.members) >= 60:
+            raise ValueError("Group has reached its maximum limit of 60 members")
+
         for member in group.members:
             if member.user_id == user_id:
                 raise ValueError("User already in group")

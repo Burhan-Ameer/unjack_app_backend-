@@ -1,0 +1,27 @@
+name: Deploy to Home K3s
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to ACR
+        run: echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
+
+      - name: Build and push image
+        run: |
+          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/unjack:${{ github.sha }} .
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/unjack:${{ github.sha }}
+
+      - name: Deploy to K3s
+        run: |
+          kubectl set image deployment/unjack-api \
+            unjack-api=${{ secrets.ACR_LOGIN_SERVER }}/unjack:${{ github.sha }} \
+            -n unjack-dev

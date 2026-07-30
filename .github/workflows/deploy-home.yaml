@@ -17,9 +17,10 @@ jobs:
 
       - name: Build and push image
         run: |
-          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/unjack:${{ github.sha }} .
+          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/unjack:${{ github.sha }} -t ${{ secrets.ACR_LOGIN_SERVER }}/unjack:latest .
           docker push ${{ secrets.ACR_LOGIN_SERVER }}/unjack:${{ github.sha }}
-
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/unjack:latest
+          
       - name: Deploy to K3s
         run: |
           kubectl set image deployment/unjack-api \
